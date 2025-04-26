@@ -4,6 +4,13 @@ from pydantic import BaseModel
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import pandas as pd
+import openai
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 app = FastAPI()
 
@@ -23,14 +30,19 @@ class PredictionRequest(BaseModel):
 
 # Load and prepare data
 def load_data():
-    pollution_data = pd.read_csv('Preprocessed_Data/global-plastics-production-pollution.csv')
-    waste_data = pd.read_csv('Preprocessed_Data/global-plastics-production-waste.csv')
+    # Use os.path to handle file paths correctly
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    xdata = np.genfromtxt('Preprocessed_Data/global-plastics-production-pollution.csv', delimiter=',', skip_header=1)
+    pollution_x = xdata[:, 1]
+
+    ydata = np.genfromtxt('Preprocessed_Data/plastic-fate.csv', delimiter=',', skip_header=1)
+    pollution_y = ydata[:, 1]
     
-    pollution_x = pollution_data['Global plastics production (million tonnes)'].values.reshape(-1, 1)
-    pollution_y = pollution_data['Global plastics production (million tonnes)'].values
-    
-    waste_x = waste_data['Global plastics production (million tonnes)'].values.reshape(-1, 1)
-    waste_y = waste_data['Global plastics production (million tonnes)'].values
+    xdata = np.genfromtxt('Preprocessed_Data/global-plastics-production-waste.csv', delimiter=',', skip_header=1)
+    waste_x = xdata[:, 1]
+
+    ydata = np.genfromtxt('Preprocessed_Data/plastic-waste-by-sector.csv', delimiter=',', skip_header=1)
+    waste_y = ydata[:, 1]
     
     return pollution_x, pollution_y, waste_x, waste_y
 
@@ -85,9 +97,24 @@ async def predict(request: PredictionRequest):
             "userInput": float(prediction)
         })
         
+        # Get environmental impact analysis from OpenAI
+        impact_prompt = f"What are the impacts of {prediction:.2f} million tonnes of plastic {request.predictionType} and what are ways to combat it? Please provide a concise response with two sections: 1) Environmental Impacts and 2) Solutions"
+        
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": impact_prompt}],
+                max_tokens=300,
+                temperature=0.7
+            )
+            impact_analysis = response.choices[0].message.content
+        except Exception as e:
+            impact_analysis = "Unable to generate environmental impact analysis at this time."
+        
         return {
             "prediction": prediction,
-            "graphData": graph_data
+            "graphData": graph_data,
+            "impactAnalysis": impact_analysis
         }
         
     except Exception as e:

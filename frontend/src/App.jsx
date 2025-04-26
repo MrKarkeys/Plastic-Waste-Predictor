@@ -9,6 +9,7 @@ function App() {
   const [result, setResult] = useState(null)
   const [graphData, setGraphData] = useState(null)
   const [error, setError] = useState(null)
+  const [impactAnalysis, setImpactAnalysis] = useState(null)
 
   const handleSubmit = async () => {
     try {
@@ -36,6 +37,7 @@ function App() {
       const data = await response.json()
       setResult(data.prediction.toFixed(2))
       setGraphData(data.graphData)
+      setImpactAnalysis(data.impactAnalysis)
       setError(null)
     } catch (error) {
       console.error('Error:', error)
@@ -130,49 +132,72 @@ function App() {
               </p>
             </div>
             {graphData && (
-              <div className="visualization" style={{ width: '100%', height: '400px' }}>
-                <ResponsiveContainer>
-                  <LineChart data={graphData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="production"
-                      label={{ value: 'Production (million tonnes)', position: 'bottom' }}
-                    />
-                    <YAxis
-                      label={{
-                        value: predictionType === 'waste' ? 'Waste (million tonnes)' : 'Pollution (million tonnes)',
-                        angle: -90,
-                        position: 'left'
-                      }}
-                    />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="original"
-                      stroke="#8884d8"
-                      name="Historical Data"
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="predicted"
-                      stroke="#82ca9d"
-                      name="Model Prediction"
-                      dot={false}
-                    />
-                    {graphData.find(point => point.userInput !== undefined) && (
+              <>
+                <div className="visualization" style={{ width: '100%', height: '500px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={graphData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="production"
+                        label={{ value: 'Production (million tonnes)', position: 'insideBottom', offset: -10 }}
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => value.toLocaleString()}
+                      />
+                      <YAxis
+                        label={{
+                          value: predictionType === 'waste' ? 'Waste (million tonnes)' : 'Pollution (million tonnes)',
+                          angle: -90,
+                          position: 'insideLeft',
+                          offset: -15
+                        }}
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => value.toLocaleString()}
+                        width={80}
+                      />
+                      <Tooltip
+                        formatter={(value) => value.toLocaleString()}
+                        labelFormatter={(value) => `Production: ${value.toLocaleString()}`}
+                      />
+                      <Legend verticalAlign="top" height={36} />
                       <Line
                         type="monotone"
-                        dataKey="userInput"
-                        stroke="#ff7300"
-                        name="Your Prediction"
-                        dot
+                        dataKey="original"
+                        stroke="#8884d8"
+                        name="Historical Data"
+                        dot={false}
+                        strokeWidth={2}
                       />
-                    )}
+                      <Line
+                        type="monotone"
+                        dataKey="predicted"
+                        stroke="#82ca9d"
+                        name="Model Prediction"
+                        dot={false}
+                        strokeWidth={2}
+                      />
+                      {graphData.find(point => point.userInput !== undefined) && (
+                        <Line
+                          type="monotone"
+                          dataKey="userInput"
+                          stroke="#ff7300"
+                          name="Your Prediction"
+                          dot={{ r: 6 }}
+                          strokeWidth={2}
+                        />
+                      )}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+              {impactAnalysis && (
+                <div className="environmental-impact">
+                  <h2>Environmental Impact Analysis</h2>
+                  <p>{impactAnalysis}</p>
+                </div>
+              )}
+              </>
             )}
           </>
         )}
