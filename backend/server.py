@@ -32,24 +32,29 @@ class PredictionRequest(BaseModel):
 def load_data():
     # Use os.path to handle file paths correctly
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    xdata = np.genfromtxt('Preprocessed_Data/global-plastics-production-pollution.csv', delimiter=',', skip_header=1)
+    xdata = np.genfromtxt(os.path.join(base_dir, 'Preprocessed_Data/global-plastics-production-pollution.csv'), delimiter=',', skip_header=1)
     pollution_x = xdata[:, 1]
 
-    ydata = np.genfromtxt('Preprocessed_Data/plastic-fate.csv', delimiter=',', skip_header=1)
+    ydata = np.genfromtxt(os.path.join(base_dir, 'Preprocessed_Data/plastic-fate.csv'), delimiter=',', skip_header=1)
     pollution_y = ydata[:, 1]
     
-    xdata = np.genfromtxt('Preprocessed_Data/global-plastics-production-waste.csv', delimiter=',', skip_header=1)
+    xdata = np.genfromtxt(os.path.join(base_dir, 'Preprocessed_Data/global-plastics-production-waste.csv'), delimiter=',', skip_header=1)
     waste_x = xdata[:, 1]
 
-    ydata = np.genfromtxt('Preprocessed_Data/plastic-waste-by-sector.csv', delimiter=',', skip_header=1)
+    ydata = np.genfromtxt(os.path.join(base_dir, 'Preprocessed_Data/plastic-waste-by-sector.csv'), delimiter=',', skip_header=1)
     waste_y = ydata[:, 1]
+
+    # Linear regression models
+    pollution_x = pollution_x.reshape(-1, 1)
+    waste_x = waste_x.reshape(-1, 1)
     
     return pollution_x, pollution_y, waste_x, waste_y
 
 # Initialize models
 pollution_x, pollution_y, waste_x, waste_y = load_data()
 
-# Linear regression models
+
+# Predicting using Pollution Model
 pollution_model = LinearRegression().fit(pollution_x, pollution_y)
 waste_model = LinearRegression().fit(waste_x, waste_y)
 
@@ -78,24 +83,27 @@ async def predict(request: PredictionRequest):
         # Make prediction
         if request.modelType == "linear":
             prediction = float(linear_model.predict(production)[0])
+            print(prediction)
             y_pred = linear_model.predict(x)
         else:  # polynomial
             prediction = float(np.polyval(poly_coeffs, request.productionAmount))
             y_pred = np.polyval(poly_coeffs, x.flatten())
         
-        # Prepare graph data
+        # Prepare graph data with scaled production values (convert to millions)
         graph_data = [
             {"production": float(x[i][0]), 
-             "original": float(y[i]), 
-             "predicted": float(y_pred[i])}
+             "original": float(y[i])}
             for i in range(len(x))
         ]
         
-        # Add user input point
+        # Add user input point at the correct x-axis position
         graph_data.append({
             "production": float(request.productionAmount),
             "userInput": float(prediction)
         })
+        
+        # Sort graph data by production amount to ensure proper line rendering
+        graph_data = sorted(graph_data, key=lambda x: x['production'])
         
         # Get environmental impact analysis from OpenAI
         impact_prompt = f"What are the impacts of {prediction:.2f} million tonnes of plastic {request.predictionType} and what are ways to combat it? Please provide a concise response with two sections: 1) Environmental Impacts and 2) Solutions"

@@ -24,7 +24,7 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          productionAmount: parseFloat(productionAmount),
+          productionAmount: parseFloat(productionAmount) * 1000000,
           predictionType: predictionType,
           modelType: modelType === 'model1' ? 'linear' : 'polynomial'
         })
@@ -64,7 +64,14 @@ function App() {
               color: predictionType === 'waste' ? '#ffffff' : '#000000',
               border: '1px solid #1a1a1a'
             }}
-            onClick={() => setPredictionType('waste')}
+            onClick={() => {
+            setPredictionType('waste')
+            setProductionAmount('')
+            setResult(null)
+            setGraphData(null)
+            setImpactAnalysis(null)
+            setError(null)
+          }}
           >
             Waste
           </button>
@@ -74,7 +81,14 @@ function App() {
               color: predictionType === 'pollution' ? '#ffffff' : '#000000',
               border: '1px solid #1a1a1a'
             }}
-            onClick={() => setPredictionType('pollution')}
+            onClick={() => {
+            setPredictionType('pollution')
+            setProductionAmount('')
+            setResult(null)
+            setGraphData(null)
+            setImpactAnalysis(null)
+            setError(null)
+          }}
           >
             Pollution
           </button>
@@ -87,7 +101,14 @@ function App() {
               color: modelType === 'model1' ? '#ffffff' : '#000000',
               border: '1px solid #1a1a1a'
             }}
-            onClick={() => setModelType('model1')}
+            onClick={() => {
+            setModelType('model1')
+            setProductionAmount('')
+            setResult(null)
+            setGraphData(null)
+            setImpactAnalysis(null)
+            setError(null)
+          }}
           >
             Model 1
           </button>
@@ -97,7 +118,14 @@ function App() {
               color: modelType === 'model2' ? '#ffffff' : '#000000',
               border: '1px solid #1a1a1a'
             }}
-            onClick={() => setModelType('model2')}
+            onClick={() => {
+            setModelType('model2')
+            setProductionAmount('')
+            setResult(null)
+            setGraphData(null)
+            setImpactAnalysis(null)
+            setError(null)
+          }}
           >
             Model 2
           </button>
@@ -127,7 +155,7 @@ function App() {
               <h2>Prediction Result</h2>
               <p>
                 <strong>{predictionType === 'waste' ? 'Predicted Waste' : 'Predicted Pollution'}:</strong>
-                <span style={{ marginLeft: '10px', color: '#4CAF50' }}>{result}</span>
+                <span style={{ marginLeft: '10px', color: '#4CAF50' }}>{(result / 1000000).toFixed(2)}</span>
                 <span style={{ marginLeft: '5px' }}>million tonnes</span>
               </p>
             </div>
@@ -167,15 +195,7 @@ function App() {
                         dataKey="original"
                         stroke="#8884d8"
                         name="Historical Data"
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="predicted"
-                        stroke="#82ca9d"
-                        name="Model Prediction"
-                        dot={false}
+                        dot
                         strokeWidth={2}
                       />
                       {graphData.find(point => point.userInput !== undefined) && (
@@ -184,7 +204,11 @@ function App() {
                           dataKey="userInput"
                           stroke="#ff7300"
                           name="Your Prediction"
-                          dot={{ r: 6 }}
+                          dot={{
+                            r: 6,
+                            cx: graphData.find(point => point.userInput !== undefined).production,
+                            cy: graphData.find(point => point.userInput !== undefined).userInput
+                          }}
                           strokeWidth={2}
                         />
                       )}
