@@ -105,7 +105,7 @@ def linear_fit2(x, y):
     return c
 
 # Doing a polynomial fit on the data
-def poly_fit_helper(x, y, num_degrees, AICvals):
+def poly_fit_helper(x, y, num_degrees, AICvals, RSSvals):
     results = []
 
     for i in range(1, num_degrees+1):
@@ -116,6 +116,7 @@ def poly_fit_helper(x, y, num_degrees, AICvals):
 
         #calculate RSS
         RSS = calcRSS(y, np.polyval(coefficients, x))
+        RSSvals.append(RSS)
 
         #calcualte AIC
         AIC = calcAIC(RSS, len(x), len(coefficients))
@@ -126,33 +127,30 @@ def poly_fit_helper(x, y, num_degrees, AICvals):
     return results
 
 def polynomial_fit():
+    result_summary_arr_pollution = []
+    result_summary_arr_waste= []
+
     degrees = 5
     AICvals_pollution = []
-    pollution_results = poly_fit_helper(pollution_x, pollution_y, degrees, AICvals_pollution) #calculating polynomials starting at 1 degree to 5 degrees
+    RSSvals_pollution = []
+    pollution_results = poly_fit_helper(pollution_x, pollution_y, degrees, AICvals_pollution, RSSvals_pollution) #calculating polynomials starting at 1 degree to 5 degrees
     pollution_stored_coefficients = []
     for i in range(0, degrees):
         i, coefficients, RSS, AIC, xdata, final_y = pollution_results[i]
         pollution_stored_coefficients.append(coefficients)
-        print(f"DEGREE: {i} COEFFICIENTS: {coefficients} \n RSS: {RSS} \n AIC: {AIC}")
-
+        result_summary_pollution = f"DEGREE: {i} COEFFICIENTS: {coefficients} \n RSS: {RSS} \n AIC: {AIC}"
+        result_summary_arr_pollution.append(result_summary_pollution)
     AICvals_waste = []
-    waste_results = poly_fit_helper(waste_x, waste_y, degrees, AICvals_waste) #calculating polynomials starting at 1 degree to 5 degrees
+    RSSvals_waste = []
+    waste_results = poly_fit_helper(waste_x, waste_y, degrees, AICvals_waste, RSSvals_waste) #calculating polynomials starting at 1 degree to 5 degrees
     waste_stored_coefficients = []
     for i in range(0, degrees):
         i, coefficients, RSS, AIC, xdata, final_y = waste_results[i]
         waste_stored_coefficients.append(coefficients)
-        print(f"DEGREE: {i} COEFFICIENTS: {coefficients} \n RSS: {RSS} \n AIC: {AIC}")
+        result_summary_waste = f"DEGREE: {i} COEFFICIENTS: {coefficients} \n RSS: {RSS} \n AIC: {AIC}"
+        result_summary_arr_waste.append(result_summary_waste)
 
-    pollution_model_number = pick_best_model(AICvals_pollution)
-    print(f"Picked Pollution Prediction Model of Degree {pollution_model_number}")
-    pollution_poly_coeffs = pollution_stored_coefficients[pollution_model_number]
-    # print(f"Prediction: {pollution_prediction_result}\n")
-
-    waste_model_number = pick_best_model(AICvals_waste)
-    print(f"Picked Waste Prediction Model of Degree {waste_model_number}")
-    waste_poly_coeffs = waste_stored_coefficients[waste_model_number]
-    # print(f"Prediction: {waste_prediction_result}\n")
-    return pollution_poly_coeffs, waste_poly_coeffs
+    return result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients
 
 @app.post("/api/predict")
 async def predict(request: PredictionRequest):
@@ -162,28 +160,62 @@ async def predict(request: PredictionRequest):
         if request.predictionType == "pollution":
             x, y = pollution_x.reshape(-1, 1), pollution_y
             linear_model = linear_regression()[0]
-            poly_coeffs = polynomial_fit()[0]
+
+            result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients = polynomial_fit()
+            pollution_model_number = pick_best_model(AICvals_pollution)
+            AIC_poly = AICvals_pollution[pollution_model_number]
+            RSS_poly = RSSvals_pollution[pollution_model_number]
+            result_summary = result_summary_arr_pollution[pollution_model_number]
+            poly_info = (pollution_stored_coefficients[pollution_model_number], AIC_poly, RSS_poly, result_summary)
+
         else:  # waste
             x, y = waste_x.reshape(-1, 1), waste_y
             linear_model = linear_regression()[1]
-            poly_coeffs = polynomial_fit()[1]
+
+            result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients = polynomial_fit()
+            waste_model_number = pick_best_model(AICvals_waste)
+            
+            AIC_poly = AICvals_waste[waste_model_number]
+            RSS_poly = RSSvals_waste[waste_model_number]
+            result_summary = result_summary_arr_waste[waste_model_number]
+            poly_info = (waste_stored_coefficients[waste_model_number], AIC_poly, RSS_poly, result_summary)
         
         # Make Linear prediction
         if request.modelType == "linear":
+            
+            # predicting for a single input
             prediction = float(linear_model.predict(production)[0])
             
-            # Predicting using Linear Model
+            # predicting for all x linear model
             y_pred = linear_model.predict(x)
+            
+            # AIC, RSS, SLOPE, INTERCEPT of linear model
             RSS = calcRSS(y, y_pred)
             AIC = calcAIC(RSS, len(y), len(linear_model.coef_))
+            COEFFICIENTS = np.array([linear_model.coef_[0], linear_model.intercept_])
             
             # Debugging Metrics
-            print(f"Linear Regression {request.predictionType.upper()} Prediction SLOPE: {linear_model.coef_[0]} \n INTERCEPT: {linear_model.intercept_} \n RSS: {RSS} \n AIC: {AIC}")
+            print((RSS, AIC, COEFFICIENTS))
+            print(f"Linear Regression {request.predictionType.upper()} Prediction SLOPE: {COEFFICIENTS[0]} \n INTERCEPT: {COEFFICIENTS[1]} \n RSS: {RSS} \n AIC: {AIC}")
             print(f"{request.predictionType.upper()} Prediction for Input: {prediction}")
 
         else:  # polynomial
-            prediction = float(np.polyval(poly_coeffs, request.productionAmount))
-            y_pred = np.polyval(poly_coeffs, x)
+
+            #RSS, AIC, COEFFICIENTS of polynomial model
+            RSS = poly_info[2]
+            AIC = poly_info[1]
+            COEFFICIENTS = poly_info[0]
+            
+            # predicting for a single input
+            prediction = float(np.polyval(COEFFICIENTS, request.productionAmount))
+
+            #Debugging Metrics
+            print((RSS, AIC, COEFFICIENTS))
+            print(f"{request.predictionType.upper()} Model: {poly_info[3]}")
+            print(f"{request.predictionType.upper()} Prediction: {prediction}\n")
+            
+            # predicting for all x polynomial model
+            y_pred = np.polyval(COEFFICIENTS, x)
         
         # Prepare graph data with scaled production values (convert to millions)
         graph_data = [
