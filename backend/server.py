@@ -4,14 +4,16 @@ from pydantic import BaseModel
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import pandas as pd
-import openai
 import os
 from dotenv import load_dotenv
 from sklearn.ensemble import RandomForestRegressor
+import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
-openai.api_key = os.getenv('OPENAI_API_KEY')
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+
+genai.configure(api_key=gemini_api_key)
 
 app = FastAPI()
 
@@ -31,251 +33,160 @@ class PredictionRequest(BaseModel):
 
 # Load and prepare data
 def load_data():
-    # Use os.path to handle file paths correctly
     base_dir = os.path.dirname(os.path.abspath(__file__))
     xdata = np.genfromtxt(os.path.join(base_dir, 'Preprocessed_Data/global-plastics-production-pollution.csv'), delimiter=',', skip_header=1)
     pollution_x = xdata[:, 1]
 
     ydata = np.genfromtxt(os.path.join(base_dir, 'Preprocessed_Data/plastic-fate.csv'), delimiter=',', skip_header=1)
     pollution_y = ydata[:, 1]
-    
+
     xdata = np.genfromtxt(os.path.join(base_dir, 'Preprocessed_Data/global-plastics-production-waste.csv'), delimiter=',', skip_header=1)
     waste_x = xdata[:, 1]
 
     ydata = np.genfromtxt(os.path.join(base_dir, 'Preprocessed_Data/plastic-waste-by-sector.csv'), delimiter=',', skip_header=1)
     waste_y = ydata[:, 1]
-    
+
     return pollution_x, pollution_y, waste_x, waste_y
 
-# calculating the residual sum of squares
 def calcRSS(y, y_pred):
-    sqr_error = np.power(y - y_pred, 2)
-    RSS = np.sum(sqr_error)
-    return RSS
+    return np.sum(np.power(y - y_pred, 2))
 
-# calculting Akaike Information Criteria
 def calcAIC(RSS, n, k):
-    AIC = n*np.log(RSS/n)+2*(k+1)
-    return AIC
+    return n*np.log(RSS/n)+2*(k+1)
 
-
-# Model 1 Linear Regression
 def linear_regression():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
-
     pollution_x = pollution_x.reshape(-1, 1)
     waste_x = waste_x.reshape(-1, 1)
-
-    # Training Pollution Model
-    predict_pollution_model = LinearRegression()
-    predict_pollution_model.fit(pollution_x, pollution_y)
-    
-    # Training Waste Model
-    predict_waste_model = LinearRegression()
-    predict_waste_model.fit(waste_x, waste_y)
-
+    predict_pollution_model = LinearRegression().fit(pollution_x, pollution_y)
+    predict_waste_model = LinearRegression().fit(waste_x, waste_y)
     return predict_pollution_model, predict_waste_model
 
-# pick the model with the best degree that maps to the data
 def pick_best_model(AICvals):
-    if len(AICvals) == 0: return None
+    if not AICvals:
+        return None
     best = 0
-    # picks model that follows AICnew-AICprev >= 2
     for i in range(len(AICvals)):
         if AICvals[i] <= AICvals[best]-2:
             best = i
     return best
 
-# Using Linear Least Squares to determine the coefficients of the model
 def linear_fit2(x, y):
-    xT = np.transpose(x)
-    xTx = np.dot(xT, x)
-    xTy = np.dot(xT, y)
-    xTx_inv = np.linalg.inv(xTx)
-    c = np.dot(xTx_inv, xTy)
-    return c
+    return np.dot(np.linalg.inv(np.dot(x.T, x)), np.dot(x.T, y))
 
-# Doing a polynomial fit on the data
 def poly_fit_helper(x, y, num_degrees, AICvals, RSSvals):
     results = []
-
     for i in range(1, num_degrees+1):
         xdata = np.linspace(min(x), max(x), 500)
         new_x = np.vander(x, i+1)
         coefficients = linear_fit2(new_x, y)
         final_y = np.polyval(coefficients, xdata)
-
-        #calculate RSS
         RSS = calcRSS(y, np.polyval(coefficients, x))
-        RSSvals.append(RSS)
-
-        #calcualte AIC
         AIC = calcAIC(RSS, len(x), len(coefficients))
+        RSSvals.append(RSS)
         AICvals.append(AIC)
-
         results.append((i, coefficients, RSS, AIC, xdata, final_y))
-
     return results
 
 def polynomial_fit():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
-    result_summary_arr_pollution = []
-    result_summary_arr_waste= []
-
     degrees = 5
-    AICvals_pollution = []
-    RSSvals_pollution = []
-    pollution_results = poly_fit_helper(pollution_x, pollution_y, degrees, AICvals_pollution, RSSvals_pollution) #calculating polynomials starting at 1 degree to 5 degrees
-    pollution_stored_coefficients = []
-    for i in range(0, degrees):
-        i, coefficients, RSS, AIC, xdata, final_y = pollution_results[i]
-        pollution_stored_coefficients.append(coefficients)
-        result_summary_pollution = f"DEGREE: {i} COEFFICIENTS: {coefficients} \n RSS: {RSS} \n AIC: {AIC}"
-        result_summary_arr_pollution.append(result_summary_pollution)
-    AICvals_waste = []
-    RSSvals_waste = []
-    waste_results = poly_fit_helper(waste_x, waste_y, degrees, AICvals_waste, RSSvals_waste) #calculating polynomials starting at 1 degree to 5 degrees
-    waste_stored_coefficients = []
-    for i in range(0, degrees):
-        i, coefficients, RSS, AIC, xdata, final_y = waste_results[i]
-        waste_stored_coefficients.append(coefficients)
-        result_summary_waste = f"DEGREE: {i} COEFFICIENTS: {coefficients} \n RSS: {RSS} \n AIC: {AIC}"
-        result_summary_arr_waste.append(result_summary_waste)
+    AICvals_pollution, RSSvals_pollution = [], []
+    pollution_results = poly_fit_helper(pollution_x, pollution_y, degrees, AICvals_pollution, RSSvals_pollution)
+    pollution_stored_coefficients = [res[1] for res in pollution_results]
+    result_summary_arr_pollution = [f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}" for res in pollution_results]
+
+    AICvals_waste, RSSvals_waste = [], []
+    waste_results = poly_fit_helper(waste_x, waste_y, degrees, AICvals_waste, RSSvals_waste)
+    waste_stored_coefficients = [res[1] for res in waste_results]
+    result_summary_arr_waste = [f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}" for res in waste_results]
 
     return result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients
 
 def random_forest_model_fit():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
-
     pollution_x = pollution_x.reshape(-1, 1)
     waste_x = waste_x.reshape(-1, 1)
-
-    predict_pollution_model = RandomForestRegressor(n_estimators=100, random_state=42)
-    predict_pollution_model.fit(pollution_x, pollution_y)
-
-    predice_waste_model = RandomForestRegressor(n_estimators=100, random_state=42)
-    predice_waste_model.fit(waste_x, waste_y)
-
-    return predict_pollution_model, predice_waste_model
+    predict_pollution_model = RandomForestRegressor(n_estimators=100, random_state=42).fit(pollution_x, pollution_y)
+    predict_waste_model = RandomForestRegressor(n_estimators=100, random_state=42).fit(waste_x, waste_y)
+    return predict_pollution_model, predict_waste_model
 
 @app.post("/api/predict")
 async def predict(request: PredictionRequest):
     try:
         production = np.array([[request.productionAmount]])
         pollution_x, pollution_y, waste_x, waste_y = load_data()
+
         if request.predictionType == "pollution":
             x, y = pollution_x.reshape(-1, 1), pollution_y
             linear_model = linear_regression()[0]
-
-            result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients = polynomial_fit()
-            pollution_model_number = pick_best_model(AICvals_pollution)
-            AIC_poly = AICvals_pollution[pollution_model_number]
-            RSS_poly = RSSvals_pollution[pollution_model_number]
-            result_summary = result_summary_arr_pollution[pollution_model_number]
-            poly_info = (pollution_stored_coefficients[pollution_model_number], AIC_poly, RSS_poly, result_summary)
-
             random_forest_model = random_forest_model_fit()[0]
-
-        else:  # waste
+            result_summary_arr, _, AICvals, RSSvals, _, _, stored_coeffs, _ = polynomial_fit()
+        else:
             x, y = waste_x.reshape(-1, 1), waste_y
             linear_model = linear_regression()[1]
-
-            result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients = polynomial_fit()
-            waste_model_number = pick_best_model(AICvals_waste)
-            AIC_poly = AICvals_waste[waste_model_number]
-            RSS_poly = RSSvals_waste[waste_model_number]
-            result_summary = result_summary_arr_waste[waste_model_number]
-            poly_info = (waste_stored_coefficients[waste_model_number], AIC_poly, RSS_poly, result_summary)
-
             random_forest_model = random_forest_model_fit()[1]
+            _, result_summary_arr, _, _, AICvals, RSSvals, _, stored_coeffs = polynomial_fit()
 
-        # Make Linear prediction
+        model_num = pick_best_model(AICvals)
+        AIC_poly = AICvals[model_num]
+        RSS_poly = RSSvals[model_num]
+        COEFFICIENTS = stored_coeffs[model_num]
+
+        model_info = ""
+
         if request.modelType == "linear":
-            
-            # predicting for a single input
             prediction = float(linear_model.predict(production)[0])
-            
-            # predicting for all x linear model
             y_pred = linear_model.predict(x)
-            
-            # AIC, RSS, COEFFICIENTS of linear model
             RSS = calcRSS(y, y_pred)
             AIC = calcAIC(RSS, len(y), len(linear_model.coef_))
-            COEFFICIENTS = np.array([linear_model.coef_[0], linear_model.intercept_])
-            
-            # Debugging Metrics
-            print((RSS, AIC, COEFFICIENTS))
-            print(f"Linear Regression {request.predictionType.upper()} Prediction SLOPE: {COEFFICIENTS[0]} \n INTERCEPT: {COEFFICIENTS[1]} \n RSS: {RSS} \n AIC: {AIC}")
-            print(f"{request.predictionType.upper()} Prediction for Input: {prediction}")
-
-        elif request.modelType == "polynomial":  # polynomial
-
-            # RSS, AIC, COEFFICIENTS of polynomial model
-            RSS = poly_info[2]
-            AIC = poly_info[1]
-            COEFFICIENTS = poly_info[0]
-            
-            # predicting for a single input
+            COEFFICIENTS = [linear_model.coef_[0], linear_model.intercept_]
+            model_info = f"\nModel Type: Linear Regression\nRSS: {RSS:.4f}\nAIC: {AIC:.4f}\nCoefficients: {COEFFICIENTS}"
+        elif request.modelType == "polynomial":
             prediction = float(np.polyval(COEFFICIENTS, request.productionAmount))
-
-            #Debugging Metrics
-            print((RSS, AIC, COEFFICIENTS))
-            print(f"{request.predictionType.upper()} Model: {poly_info[3]}")
-            print(f"{request.predictionType.upper()} Prediction: {prediction}\n")
-            
-            # predicting for all x polynomial model
             y_pred = np.polyval(COEFFICIENTS, x)
-        
-        else: #random forest
-            # predicting for a single input
+            RSS = RSS_poly
+            AIC = AIC_poly
+            model_info = f"\nModel Type: Polynomial Regression\nRSS: {RSS:.4f}\nAIC: {AIC:.4f}\nCoefficients: {COEFFICIENTS}"
+        else:
             prediction = float(random_forest_model.predict(production)[0])
-            
-            # predicting for all x linear model
             y_pred = random_forest_model.predict(x)
-            
-            # RSS for random forest model
             RSS = calcRSS(y, y_pred)
-            
-            # Debugging Metrics
-            print(f"Random Forest {request.predictionType.upper()} Prediction RSS: {RSS}")
-            print(f"{request.predictionType.upper()} Prediction for Input: {prediction}")
+            model_info = f"\nModel Type: Random Forest\nRSS: {RSS:.4f}"
 
-        # Prepare graph data with scaled production values (convert to millions)
-        graph_data = [
-            {"production": float(x[i][0]), 
-             "original": float(y[i])}
-            for i in range(len(x))
-        ]
-        
-        # Add user input point at the correct x-axis position
-        graph_data.append({
-            "production": float(request.productionAmount),
-            "userInput": float(prediction)
-        })
-        
-        # Sort graph data by production amount to ensure proper line rendering
-        graph_data = sorted(graph_data, key=lambda x: x['production'])
-        
-        # Get environmental impact analysis from OpenAI
-        impact_prompt = f"What are the impacts of {prediction:.2f} million tonnes of plastic {request.predictionType} and what are ways to combat it? Please provide a concise response with two sections: 1) Environmental Impacts and 2) Solutions"
-        
+        graph_data = [{"production": float(x[i][0]), "original": float(y[i])} for i in range(len(x))]
+        graph_data.append({"production": float(request.productionAmount), "userInput": float(prediction)})
+        graph_data = sorted(graph_data, key=lambda d: d["production"])
+
+        impact_prompt = f"""
+You are an environmental analyst. Given the plastic {request.predictionType} of {prediction:.2f} million tonnes, provide the following:
+
+**1) Environmental Impacts:**  
+List several key environmental concerns, each starting with a bolded label (e.g., **Ocean Pollution:**).
+
+**2) Solutions:**  
+List practical and policy-based solutions, each also beginning with a bolded label.
+
+Model Information: {model_info}
+
+Use markdown formatting for readability (bold, line breaks, and bullet points if needed).
+"""
+
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": impact_prompt}],
-                max_tokens=300,
-                temperature=0.7
-            )
-            impact_analysis = response.choices[0].message.content
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            response = model.generate_content(impact_prompt)
+            impact_analysis = response.text
+            print(impact_analysis)
         except Exception as e:
-            impact_analysis = "Unable to generate environmental impact analysis at this time."
-        
+            print(f"Gemini API Error: {e}")
+            impact_analysis = "Environmental impact analysis is currently unavailable."
+
         return {
             "prediction": prediction,
             "graphData": graph_data,
             "impactAnalysis": impact_analysis
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

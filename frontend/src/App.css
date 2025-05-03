@@ -155,19 +155,79 @@ header {
 
 .environmental-impact {
   background: #ffffff;
-  padding: 1.5rem;
-  border-radius: 8px;
+  padding: 2rem;
+  border-radius: 12px;
   margin-top: 2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .environmental-impact h2 {
   color: #2c3e50;
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  font-size: 1.8rem;
 }
 
-.environmental-impact p {
+.impact-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.impact-section {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.impact-section h3 {
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  font-size: 1.4rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #4CAF50;
+}
+
+.impact-section.impacts h3 {
+  border-color: #e74c3c;
+}
+
+.impact-section.solutions h3 {
+  border-color: #3498db;
+}
+
+.impact-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  color:#2c3e50
+}
+
+.impact-item {
+  background: white;
+  padding: 1.25rem;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.impact-item h4 {
+  color: #4CAF50;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.impact-section.impacts .impact-item h4 {
+  color: #e74c3c;
+}
+
+.impact-section.solutions .impact-item h4 {
+  color: #3498db;
+}
+
+.impact-item p {
   color: #34495e;
   line-height: 1.6;
-  white-space: pre-line;
+  margin: 0;
+  font-size: 0.95rem;
 }

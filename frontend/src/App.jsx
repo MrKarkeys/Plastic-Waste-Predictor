@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import ReactMarkdown from 'react-markdown'
 
 function App() {
   const [predictionType, setPredictionType] = useState('waste')
@@ -10,6 +11,7 @@ function App() {
   const [graphData, setGraphData] = useState(null)
   const [error, setError] = useState(null)
   const [impactAnalysis, setImpactAnalysis] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async () => {
     try {
@@ -17,6 +19,8 @@ function App() {
         setError('Please enter a production amount')
         return
       }
+      setIsLoading(true)
+      setError(null)
       
       const response = await fetch('http://localhost:8000/api/predict', {
         method: 'POST',
@@ -42,8 +46,8 @@ function App() {
     } catch (error) {
       console.error('Error:', error)
       setError('Error occurred while making prediction')
-      setResult(null)
-      setGraphData(null)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -162,7 +166,11 @@ function App() {
       </div>
 
       <div className="results">
-        {error ? (
+        {isLoading ? (
+          <div className="result-display">
+            <p>Loading prediction...</p>
+          </div>
+        ) : error ? (
           <div className="error-display">
             <p className="error-message">{error}</p>
           </div>
@@ -233,11 +241,39 @@ function App() {
                 </ResponsiveContainer>
               </div>
               {impactAnalysis && (
-                <div className="environmental-impact">
-                  <h2>Environmental Impact Analysis</h2>
-                  <p>{impactAnalysis}</p>
-                </div>
-              )}
+  <div className="environmental-impact">
+    <h2>Environmental Impact Analysis</h2>
+    <div className="impact-sections">
+      {(() => {
+        const environmentalSection = impactAnalysis.match(/\*\*1\) Environmental Impacts:\*\*([\s\S]*?)\*\*2\) Solutions:\*\*/);
+        const solutionsSection = impactAnalysis.match(/\*\*2\) Solutions:\*\*([\s\S]*)/);
+
+        const impacts = environmentalSection ? environmentalSection[1].trim() : "";
+        const solutions = solutionsSection ? solutionsSection[1].trim() : "";
+
+        return (
+          <>
+            <div className="impact-section impacts">
+              <h3>Environmental Impacts</h3>
+              <div className="impact-content">
+                <ReactMarkdown>{impacts}</ReactMarkdown>
+              </div>
+            </div>
+
+            <div className="impact-section solutions">
+              <h3>Solutions</h3>
+              <div className="impact-content">
+                <ReactMarkdown>{solutions}</ReactMarkdown>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+    </div>
+  </div>
+)}
+
+
               </>
             )}
           </>
