@@ -58,8 +58,6 @@ def calcAIC(RSS, n, k):
     return AIC
 
 
-pollution_x, pollution_y, waste_x, waste_y = load_data()
-
 # Model 1 Linear Regression
 def linear_regression():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
@@ -77,13 +75,84 @@ def linear_regression():
 
     return predict_pollution_model, predict_waste_model
 
-# Polynomial models (degree 5)
-def fit_polynomial(x, y, degree=5):
-    coeffs = np.polyfit(x.flatten(), y, degree)
-    return coeffs
+pollution_x, pollution_y, waste_x, waste_y = load_data()
 
-pollution_poly_coeffs = fit_polynomial(pollution_x, pollution_y)
-waste_poly_coeffs = fit_polynomial(waste_x, waste_y)
+# # Polynomial models (degree 5)
+# def fit_polynomial(x, y, degree=5):
+#     coeffs = np.polyfit(x.flatten(), y, degree)
+#     return coeffs
+
+# pollution_poly_coeffs = fit_polynomial(pollution_x, pollution_y)
+# waste_poly_coeffs = fit_polynomial(waste_x, waste_y)
+
+# pick the model with the best degree that maps to the data
+def pick_best_model(AICvals):
+    if len(AICvals) == 0: return None
+    best = 0
+    # picks model that follows AICnew-AICprev >= 2
+    for i in range(len(AICvals)):
+        if AICvals[i] <= AICvals[best]-2:
+            best = i
+    return best
+
+# Using Linear Least Squares to determine the coefficients of the model
+def linear_fit2(x, y):
+    xT = np.transpose(x)
+    xTx = np.dot(xT, x)
+    xTy = np.dot(xT, y)
+    xTx_inv = np.linalg.inv(xTx)
+    c = np.dot(xTx_inv, xTy)
+    return c
+
+# Doing a polynomial fit on the data
+def poly_fit_helper(x, y, num_degrees, AICvals):
+    results = []
+
+    for i in range(1, num_degrees+1):
+        xdata = np.linspace(min(x), max(x), 500)
+        new_x = np.vander(x, i+1)
+        coefficients = linear_fit2(new_x, y)
+        final_y = np.polyval(coefficients, xdata)
+
+        #calculate RSS
+        RSS = calcRSS(y, np.polyval(coefficients, x))
+
+        #calcualte AIC
+        AIC = calcAIC(RSS, len(x), len(coefficients))
+        AICvals.append(AIC)
+
+        results.append((i, coefficients, RSS, AIC, xdata, final_y))
+
+    return results
+
+def polynomial_fit():
+    degrees = 5
+    AICvals_pollution = []
+    pollution_results = poly_fit_helper(pollution_x, pollution_y, degrees, AICvals_pollution) #calculating polynomials starting at 1 degree to 5 degrees
+    pollution_stored_coefficients = []
+    for i in range(0, degrees):
+        i, coefficients, RSS, AIC, xdata, final_y = pollution_results[i]
+        pollution_stored_coefficients.append(coefficients)
+        print(f"DEGREE: {i} COEFFICIENTS: {coefficients} \n RSS: {RSS} \n AIC: {AIC}")
+
+    AICvals_waste = []
+    waste_results = poly_fit_helper(waste_x, waste_y, degrees, AICvals_waste) #calculating polynomials starting at 1 degree to 5 degrees
+    waste_stored_coefficients = []
+    for i in range(0, degrees):
+        i, coefficients, RSS, AIC, xdata, final_y = waste_results[i]
+        waste_stored_coefficients.append(coefficients)
+        print(f"DEGREE: {i} COEFFICIENTS: {coefficients} \n RSS: {RSS} \n AIC: {AIC}")
+
+    pollution_model_number = pick_best_model(AICvals_pollution)
+    print(f"Picked Pollution Prediction Model of Degree {pollution_model_number}")
+    pollution_poly_coeffs = pollution_stored_coefficients[pollution_model_number]
+    # print(f"Prediction: {pollution_prediction_result}\n")
+
+    waste_model_number = pick_best_model(AICvals_waste)
+    print(f"Picked Waste Prediction Model of Degree {waste_model_number}")
+    waste_poly_coeffs = waste_stored_coefficients[waste_model_number]
+    # print(f"Prediction: {waste_prediction_result}\n")
+    return pollution_poly_coeffs, waste_poly_coeffs
 
 @app.post("/api/predict")
 async def predict(request: PredictionRequest):
@@ -93,11 +162,11 @@ async def predict(request: PredictionRequest):
         if request.predictionType == "pollution":
             x, y = pollution_x.reshape(-1, 1), pollution_y
             linear_model = linear_regression()[0]
-            poly_coeffs = pollution_poly_coeffs
+            poly_coeffs = polynomial_fit()[0]
         else:  # waste
             x, y = waste_x.reshape(-1, 1), waste_y
             linear_model = linear_regression()[1]
-            poly_coeffs = waste_poly_coeffs
+            poly_coeffs = polynomial_fit()[1]
         
         # Make Linear prediction
         if request.modelType == "linear":
@@ -114,7 +183,7 @@ async def predict(request: PredictionRequest):
 
         else:  # polynomial
             prediction = float(np.polyval(poly_coeffs, request.productionAmount))
-            y_pred = np.polyval(poly_coeffs, x.flatten())
+            y_pred = np.polyval(poly_coeffs, x)
         
         # Prepare graph data with scaled production values (convert to millions)
         graph_data = [
