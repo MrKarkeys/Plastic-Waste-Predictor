@@ -26,7 +26,7 @@ function App() {
         body: JSON.stringify({
           productionAmount: parseFloat(productionAmount) * 1000000,
           predictionType: predictionType,
-          modelType: modelType === 'model1' ? 'linear' : 'polynomial'
+          modelType: modelType === 'model1' ? 'linear' : modelType === 'model2' ? 'polynomial' : 'randomforest'
         })
       })
 
@@ -110,7 +110,7 @@ function App() {
             setError(null)
           }}
           >
-            Model 1
+            Linear Model
           </button>
           <button 
             style={{
@@ -127,7 +127,24 @@ function App() {
             setError(null)
           }}
           >
-            Model 2
+            Polynomial Model
+          </button>
+          <button 
+            style={{
+              backgroundColor: modelType === 'model3' ? '#4CAF50' : '#ffffff',
+              color: modelType === 'model3' ? '#ffffff' : '#000000',
+              border: '1px solid #1a1a1a'
+            }}
+            onClick={() => {
+            setModelType('model3')
+            setProductionAmount('')
+            setResult(null)
+            setGraphData(null)
+            setImpactAnalysis(null)
+            setError(null)
+          }}
+          >
+            Random Forest Model
           </button>
         </div>
 
