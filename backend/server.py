@@ -43,20 +43,39 @@ def load_data():
 
     ydata = np.genfromtxt(os.path.join(base_dir, 'Preprocessed_Data/plastic-waste-by-sector.csv'), delimiter=',', skip_header=1)
     waste_y = ydata[:, 1]
-
-    # Linear regression models
-    pollution_x = pollution_x.reshape(-1, 1)
-    waste_x = waste_x.reshape(-1, 1)
     
     return pollution_x, pollution_y, waste_x, waste_y
 
-# Initialize models
+# calculating the residual sum of squares
+def calcRSS(y, y_pred):
+    sqr_error = np.power(y - y_pred, 2)
+    RSS = np.sum(sqr_error)
+    return RSS
+
+# calculting Akaike Information Criteria
+def calcAIC(RSS, n, k):
+    AIC = n*np.log(RSS/n)+2*(k+1)
+    return AIC
+
+
 pollution_x, pollution_y, waste_x, waste_y = load_data()
 
+# Model 1 Linear Regression
+def linear_regression():
+    pollution_x, pollution_y, waste_x, waste_y = load_data()
 
-# Predicting using Pollution Model
-pollution_model = LinearRegression().fit(pollution_x, pollution_y)
-waste_model = LinearRegression().fit(waste_x, waste_y)
+    pollution_x = pollution_x.reshape(-1, 1)
+    waste_x = waste_x.reshape(-1, 1)
+
+    # Training Pollution Model
+    predict_pollution_model = LinearRegression()
+    predict_pollution_model.fit(pollution_x, pollution_y)
+    
+    # Training Waste Model
+    predict_waste_model = LinearRegression()
+    predict_waste_model.fit(waste_x, waste_y)
+
+    return predict_pollution_model, predict_waste_model
 
 # Polynomial models (degree 5)
 def fit_polynomial(x, y, degree=5):
@@ -72,19 +91,27 @@ async def predict(request: PredictionRequest):
         production = np.array([[request.productionAmount]])
         
         if request.predictionType == "pollution":
-            x, y = pollution_x, pollution_y
-            linear_model = pollution_model
+            x, y = pollution_x.reshape(-1, 1), pollution_y
+            linear_model = linear_regression()[0]
             poly_coeffs = pollution_poly_coeffs
         else:  # waste
-            x, y = waste_x, waste_y
-            linear_model = waste_model
+            x, y = waste_x.reshape(-1, 1), waste_y
+            linear_model = linear_regression()[1]
             poly_coeffs = waste_poly_coeffs
         
-        # Make prediction
+        # Make Linear prediction
         if request.modelType == "linear":
             prediction = float(linear_model.predict(production)[0])
-            print(prediction)
+            
+            # Predicting using Linear Model
             y_pred = linear_model.predict(x)
+            RSS = calcRSS(y, y_pred)
+            AIC = calcAIC(RSS, len(y), len(linear_model.coef_))
+            
+            # Debugging Metrics
+            print(f"Linear Regression {request.predictionType.upper()} Prediction SLOPE: {linear_model.coef_[0]} \n INTERCEPT: {linear_model.intercept_} \n RSS: {RSS} \n AIC: {AIC}")
+            print(f"{request.predictionType.upper()} Prediction for Input: {prediction}")
+
         else:  # polynomial
             prediction = float(np.polyval(poly_coeffs, request.productionAmount))
             y_pred = np.polyval(poly_coeffs, x.flatten())
