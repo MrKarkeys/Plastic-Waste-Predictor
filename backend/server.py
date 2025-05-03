@@ -75,16 +75,6 @@ def linear_regression():
 
     return predict_pollution_model, predict_waste_model
 
-pollution_x, pollution_y, waste_x, waste_y = load_data()
-
-# # Polynomial models (degree 5)
-# def fit_polynomial(x, y, degree=5):
-#     coeffs = np.polyfit(x.flatten(), y, degree)
-#     return coeffs
-
-# pollution_poly_coeffs = fit_polynomial(pollution_x, pollution_y)
-# waste_poly_coeffs = fit_polynomial(waste_x, waste_y)
-
 # pick the model with the best degree that maps to the data
 def pick_best_model(AICvals):
     if len(AICvals) == 0: return None
@@ -127,6 +117,7 @@ def poly_fit_helper(x, y, num_degrees, AICvals, RSSvals):
     return results
 
 def polynomial_fit():
+    pollution_x, pollution_y, waste_x, waste_y = load_data()
     result_summary_arr_pollution = []
     result_summary_arr_waste= []
 
@@ -156,7 +147,7 @@ def polynomial_fit():
 async def predict(request: PredictionRequest):
     try:
         production = np.array([[request.productionAmount]])
-        
+        pollution_x, pollution_y, waste_x, waste_y = load_data()
         if request.predictionType == "pollution":
             x, y = pollution_x.reshape(-1, 1), pollution_y
             linear_model = linear_regression()[0]
@@ -174,7 +165,6 @@ async def predict(request: PredictionRequest):
 
             result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients = polynomial_fit()
             waste_model_number = pick_best_model(AICvals_waste)
-            
             AIC_poly = AICvals_waste[waste_model_number]
             RSS_poly = RSSvals_waste[waste_model_number]
             result_summary = result_summary_arr_waste[waste_model_number]
@@ -189,7 +179,7 @@ async def predict(request: PredictionRequest):
             # predicting for all x linear model
             y_pred = linear_model.predict(x)
             
-            # AIC, RSS, SLOPE, INTERCEPT of linear model
+            # AIC, RSS, COEFFICIENTS of linear model
             RSS = calcRSS(y, y_pred)
             AIC = calcAIC(RSS, len(y), len(linear_model.coef_))
             COEFFICIENTS = np.array([linear_model.coef_[0], linear_model.intercept_])
