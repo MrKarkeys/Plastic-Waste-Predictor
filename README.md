@@ -28,8 +28,11 @@ A web application that predicts plastic waste and pollution based on production 
    ```bash
    pip install -r requirements.txt
    ```
-
-3. Start the backend server:
+3. Create a .env file and add your Gemini API Key in this format:
+  ```bash
+  GEMINI_API_KEY=
+  ```
+4. Start the backend server:
    ```bash
    python server.py
    ```
