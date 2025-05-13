@@ -92,13 +92,11 @@ def poly_fit_helper(x, y, num_degrees, AICvals, RSSvals):
         #calculate RSS
         RSS_w_y = RSS_y(y)
         RSS = RSS_w_y(np.polyval(coefficients, x))
-        print(RSS)
 
         #calculate AIC
         AIC_w_RSS = AIC_RSS(RSS)
         AIC_w_n = AIC_w_RSS(len(x)) 
         AIC = AIC_w_n(len(coefficients))
-        print(AIC)
         
         #add RSS to arrays
         RSSvals.append(RSS)
