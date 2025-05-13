@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import ReactMarkdown from 'react-markdown'
 
 function App() {
+  // State variables
   const [predictionType, setPredictionType] = useState('waste')
   const [modelType, setModelType] = useState('model1')
   const [productionAmount, setProductionAmount] = useState('')
@@ -15,6 +16,7 @@ function App() {
   const [modelInfo, setModelInfo] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
 
+  // Handle submit button click
   const handleSubmit = async () => {
     try {
       if (!productionAmount) {
@@ -113,6 +115,7 @@ function App() {
     }
   }
 
+  // Render the main component
   return (
     <div className="container">
       <header>
@@ -131,12 +134,14 @@ function App() {
               border: '1px solid #1a1a1a'
             }}
             onClick={() => {
-            setPredictionType('waste')
-            setProductionAmount('')
-            setResult(null)
-            setGraphData(null)
-            setEnvironmentalImpacts(null)
-            setSolutions(null)
+              // Update prediction type
+              setPredictionType('waste')
+              // Reset other state variables
+              setProductionAmount('')
+              setResult(null)
+              setGraphData(null)
+              setEnvironmentalImpacts(null)
+              setSolutions(null)
             setModelInfo(null)
             setError(null)
           }}
@@ -150,13 +155,15 @@ function App() {
               border: '1px solid #1a1a1a'
             }}
             onClick={() => {
-            setPredictionType('pollution')
-            setProductionAmount('')
-            setResult(null)
-            setGraphData(null)
-            setEnvironmentalImpacts(null)
-            setSolutions(null)
-            setModelInfo(null)
+              // Update prediction type
+              setPredictionType('pollution')
+              // Reset other state variables
+              setProductionAmount('')
+              setResult(null)
+              setGraphData(null)
+              setEnvironmentalImpacts(null)
+              setSolutions(null)
+              setModelInfo(null)
             setError(null)
           }}
           >
@@ -172,14 +179,16 @@ function App() {
               border: '1px solid #1a1a1a'
             }}
             onClick={() => {
-            setModelType('model1')
-            setProductionAmount('')
-            setResult(null)
-            setGraphData(null)
-            setEnvironmentalImpacts(null)
-            setSolutions(null)
-            setModelInfo(null)
-            setError(null)
+              // Update model type
+              setModelType('model1')
+              // Reset other state variables
+              setProductionAmount('')
+              setResult(null)
+              setGraphData(null)
+              setEnvironmentalImpacts(null)
+              setSolutions(null)
+              setModelInfo(null)
+              setError(null)
           }}
           >
             Linear Model
@@ -191,14 +200,16 @@ function App() {
               border: '1px solid #1a1a1a'
             }}
             onClick={() => {
-            setModelType('model2')
-            setProductionAmount('')
-            setResult(null)
-            setGraphData(null)
-            setEnvironmentalImpacts(null)
-            setSolutions(null)
-            setModelInfo(null)
-            setError(null)
+              // Update model type
+              setModelType('model2')
+              // Reset other state variables
+              setProductionAmount('')
+              setResult(null)
+              setGraphData(null)
+              setEnvironmentalImpacts(null)
+              setSolutions(null)
+              setModelInfo(null)
+              setError(null)
           }}
           >
             Polynomial Model
@@ -210,13 +221,15 @@ function App() {
               border: '1px solid #1a1a1a'
             }}
             onClick={() => {
-            setModelType('model3')
-            setProductionAmount('')
-            setResult(null)
-            setGraphData(null)
-            setEnvironmentalImpacts(null)
-            setSolutions(null)
-            setModelInfo(null)
+              // Update model type
+              setModelType('model3')
+              // Reset other state variables
+              setProductionAmount('')
+              setResult(null)
+              setGraphData(null)
+              setEnvironmentalImpacts(null)
+              setSolutions(null)
+              setModelInfo(null)
             setError(null)
           }}
           >
@@ -256,6 +269,8 @@ function App() {
                 <span style={{ marginLeft: '5px' }}>million tonnes</span>
               </p>
             </div>
+
+            {/* Graph data visualization */}
             {graphData && (
               <>
                 <div className="visualization" style={{ width: '100%', height: '500px' }}>
@@ -313,6 +328,7 @@ function App() {
                   </ResponsiveContainer>
                 </div>
 
+                {/* Environmental impact analysis */}
                 <div className="environmental-impact">
                   <h2>Environmental Impact Analysis</h2>
                   <div className="impact-sections">
@@ -352,5 +368,5 @@ function App() {
     </div>
   )
 }
-
+// Export the main component
 export default App

@@ -140,6 +140,7 @@ def random_forest_model_fit():
     predict_waste_model = RandomForestRegressor(n_estimators=100, random_state=42).fit(waste_x, waste_y)
     return predict_pollution_model, predict_waste_model
 
+# API endpoint for prediction
 @app.post("/api/predict")
 async def predict(request: PredictionRequest):
     try:
@@ -180,6 +181,7 @@ async def predict(request: PredictionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# API endpoint for environmental impacts that makes a call to Gemini
 @app.post("/api/environmental-impacts")
 async def get_environmental_impacts(request: PredictionRequest):
     try:
@@ -203,6 +205,7 @@ async def get_environmental_impacts(request: PredictionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# API endpoint for solutions that makes a call to Gemini
 @app.post("/api/solutions")
 async def get_solutions(request: PredictionRequest):
     try:
@@ -227,6 +230,7 @@ async def get_solutions(request: PredictionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# API endpoint for model info that makes a call to Gemini
 @app.post("/api/model-info")
 async def get_model_info(request: PredictionRequest):
     try:
@@ -302,6 +306,8 @@ async def get_model_info(request: PredictionRequest):
         return {"modelInfo": response.text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# run the server
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
