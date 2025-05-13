@@ -14,6 +14,7 @@ load_dotenv()
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
 genai.configure(api_key=gemini_api_key)
+# Model Info
 model_info = ""
 
 app = FastAPI()
