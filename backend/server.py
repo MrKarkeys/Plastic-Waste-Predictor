@@ -127,21 +127,6 @@ def polynomial_fit():
     return result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients
 
 
-# def polynomial_fit():
-#     pollution_x, pollution_y, waste_x, waste_y = load_data()
-#     degrees = 5
-#     AICvals_pollution, RSSvals_pollution = [], []
-#     pollution_results = poly_fit_helper(pollution_x, pollution_y, degrees, AICvals_pollution, RSSvals_pollution)
-#     pollution_stored_coefficients = [res[1] for res in pollution_results]
-#     result_summary_arr_pollution = [f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}" for res in pollution_results]
-
-#     AICvals_waste, RSSvals_waste = [], []
-#     waste_results = poly_fit_helper(waste_x, waste_y, degrees, AICvals_waste, RSSvals_waste)
-#     waste_stored_coefficients = [res[1] for res in waste_results]
-#     result_summary_arr_waste = [f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}" for res in waste_results]
-
-#     return result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients
-
 def random_forest_model_fit():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
     pollution_x = pollution_x.reshape(-1, 1)
@@ -161,49 +146,21 @@ async def predict(request: PredictionRequest):
             linear_model = linear_regression()[0]
             random_forest_model = random_forest_model_fit()[0]
             result_summary_arr, _, AICvals, RSSvals, _, _, stored_coeffs, _ = polynomial_fit()
-            print(result_summary_arr)
         else:
             x, y = waste_x.reshape(-1, 1), waste_y
             linear_model = linear_regression()[1]
             random_forest_model = random_forest_model_fit()[1]
             _, result_summary_arr, _, _, AICvals, RSSvals, _, stored_coeffs = polynomial_fit()
-            print(result_summary_arr)
 
         model_num = pick_best_model(AICvals)
-        AIC_poly = AICvals[model_num]
-        RSS_poly = RSSvals[model_num]
         COEFFICIENTS = stored_coeffs[model_num]
 
         if request.modelType == "linear":
-            prediction = float(linear_model.predict(production)[0])
-            y_pred = linear_model.predict(x)
-
-            #calculate RSS
-            RSS_w_y_linear = RSS_y(y)
-            RSS = RSS_w_y_linear(y_pred)
-
-            #calculate AIC
-            AIC_w_RSS_linear = AIC_RSS(RSS)
-            AIC_w_n_linear = AIC_w_RSS_linear(len(y)) 
-            AIC = AIC_w_n_linear(len(linear_model.coef_))
-
-            COEFFICIENTS = [linear_model.coef_[0], linear_model.intercept_]
-            model_info = f"\nModel Type: Linear Regression\nRSS: {RSS:.4f}\nAIC: {AIC:.4f}\nCoefficients: {COEFFICIENTS}"
+            prediction = float(linear_model.predict(production)[0])  
         elif request.modelType == "polynomial":
             prediction = float(np.polyval(COEFFICIENTS, request.productionAmount))
-            y_pred = np.polyval(COEFFICIENTS, x)
-            RSS = RSS_poly
-            AIC = AIC_poly
-            model_info = f"\nModel Type: Polynomial Regression\nRSS: {RSS:.4f}\nAIC: {AIC:.4f}\nCoefficients: {COEFFICIENTS}"
         else:
             prediction = float(random_forest_model.predict(production)[0])
-            y_pred = random_forest_model.predict(x)
-
-            #calculate RSS
-            RSS_w_y_linear = RSS_y(y)
-            RSS = RSS_w_y_linear(y_pred)
-
-            model_info = f"\nModel Type: Random Forest\nRSS: {RSS:.4f}"
 
         graph_data = list(map(lambda i: {"production": float(x[i][0]), "original": float(y[i])}, range(len(x))))
         graph_data.append({"production": float(request.productionAmount), "userInput": float(prediction)})
@@ -266,9 +223,10 @@ async def get_solutions(request: PredictionRequest):
 @app.post("/api/model-info")
 async def get_model_info(request: PredictionRequest):
     try:
-        production = np.array([[request.productionAmount]])
         pollution_x, pollution_y, waste_x, waste_y = load_data()
 
+        # extracting models for linear regression and random_forest for pollution and waste
+        # getting all calclated results for polynomial fit
         if request.predictionType == "pollution":
             x, y = pollution_x.reshape(-1, 1), pollution_y
             linear_model = linear_regression()[0]
@@ -280,26 +238,42 @@ async def get_model_info(request: PredictionRequest):
             random_forest_model = random_forest_model_fit()[1]
             _, result_summary_arr, _, _, AICvals, RSSvals, _, stored_coeffs = polynomial_fit()
 
+        # extracting a summary of the best results for polynomial fit
         model_num = pick_best_model(AICvals)
-        AIC_poly = AICvals[model_num]
-        RSS_poly = RSSvals[model_num]
-        COEFFICIENTS = stored_coeffs[model_num]
+        poly_results_summary = result_summary_arr[model_num]
 
+        # model info for linear 
         if request.modelType == "linear":
             y_pred = linear_model.predict(x)
-            RSS = calcRSS(y, y_pred)
-            AIC = calcAIC(RSS, len(y), len(linear_model.coef_))
+
+            #calculate RSS
+            RSS_w_y_linear = RSS_y(y)
+            RSS = RSS_w_y_linear(y_pred)
+
+            #calculate AIC
+            AIC_w_RSS_linear = AIC_RSS(RSS)
+            AIC_w_n_linear = AIC_w_RSS_linear(len(y)) 
+            AIC = AIC_w_n_linear(len(linear_model.coef_))
+
             COEFFICIENTS = [linear_model.coef_[0], linear_model.intercept_]
             model_info = f"\nModel Type: Linear Regression\nRSS: {RSS:.4f}\nAIC: {AIC:.4f}\nCoefficients: {COEFFICIENTS}"
+        
+        # model info for polynomial 
         elif request.modelType == "polynomial":
-            y_pred = np.polyval(COEFFICIENTS, x)
-            RSS = RSS_poly
-            AIC = AIC_poly
-            model_info = f"\nModel Type: Polynomial Regression\nRSS: {RSS:.4f}\nAIC: {AIC:.4f}\nCoefficients: {COEFFICIENTS}"
+            # DEGREES, COEFFICIENTS, RSS, AIC, already calculated
+            model_info = f"\nModel Type: Polynomial Regression\n" + poly_results_summary
+        
+        # model info for random forest
         else:
             y_pred = random_forest_model.predict(x)
-            RSS = calcRSS(y, y_pred)
+
+            #calculate RSS
+            RSS_w_y_linear = RSS_y(y)
+            RSS = RSS_w_y_linear(y_pred)
+
             model_info = f"\nModel Type: Random Forest\nRSS: {RSS:.4f}"
+
+        print(model_info)
 
         model = genai.GenerativeModel("gemini-2.0-flash")
         model_prompt = f"""
@@ -315,7 +289,6 @@ async def get_model_info(request: PredictionRequest):
 
             Format the output in clean markdown using:
             - Bolded labels within bullet points
-            - Clear line breaks between points
             """
         
         response = model.generate_content(model_prompt)
