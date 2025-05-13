@@ -57,7 +57,7 @@ A web application that predicts plastic waste and pollution based on production 
 
 1. Open your web browser and navigate to http://localhost:5173
 2. Choose between Waste or Pollution prediction
-3. Select Model 1 (Linear) or Model 2 (Polynomial)
+3. Select Model 1 (Linear), Model 2 (Polynomial), Model 3 (Random Forest)
 4. Enter the production amount in million tonnes
 5. Click 'Predict' to see the results
-6. View the prediction on the interactive graph and read the environmental impact analysis
+6. View the prediction on the interactive graph and read the environmental impacts, solutions, and model information
