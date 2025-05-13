@@ -49,11 +49,18 @@ def load_data():
 
     return pollution_x, pollution_y, waste_x, waste_y
 
-def calcRSS(y, y_pred):
-    return np.sum(np.power(y - y_pred, 2))
+#currying for RSS and AIC
+def RSS_y(y):
+    def RSS_y_pred(y_pred):
+        return np.sum(np.power(y - y_pred, 2))
+    return RSS_y_pred
 
-def calcAIC(RSS, n, k):
-    return n*np.log(RSS/n)+2*(k+1)
+def AIC_RSS(RSS):
+    def AIC_n(n):
+        def AIC_k(k):
+            return n*np.log(RSS/n)+2*(k+1)
+        return AIC_k
+    return AIC_n
 
 def linear_regression():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
@@ -82,10 +89,20 @@ def poly_fit_helper(x, y, num_degrees, AICvals, RSSvals):
         new_x = np.vander(x, i+1)
         coefficients = linear_fit2(new_x, y)
         final_y = np.polyval(coefficients, xdata)
-        RSS = calcRSS(y, np.polyval(coefficients, x))
-        AIC = calcAIC(RSS, len(x), len(coefficients))
+        
+        #calculate RSS
+        RSS_w_y = RSS_y(y)
+        RSS = RSS_w_y(np.polyval(coefficients, x))
+
+        #calculate AIC
+        AIC_w_RSS = AIC_RSS(RSS)
+        AIC_w_n = AIC_w_RSS(len(x)) 
+        AIC = AIC_w_n(len(coefficients))
+        
+        #add RSS to arrays
         RSSvals.append(RSS)
         AICvals.append(AIC)
+
         results.append((i, coefficients, RSS, AIC, xdata, final_y))
     return results
 
@@ -94,15 +111,35 @@ def polynomial_fit():
     degrees = 5
     AICvals_pollution, RSSvals_pollution = [], []
     pollution_results = poly_fit_helper(pollution_x, pollution_y, degrees, AICvals_pollution, RSSvals_pollution)
-    pollution_stored_coefficients = [res[1] for res in pollution_results]
-    result_summary_arr_pollution = [f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}" for res in pollution_results]
+
+    # using functional programming (map and lambdas)
+    pollution_stored_coefficients = list(map(lambda res: res[1], pollution_results))
+    result_summary_arr_pollution = list(map(lambda res: f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}", pollution_results))
 
     AICvals_waste, RSSvals_waste = [], []
     waste_results = poly_fit_helper(waste_x, waste_y, degrees, AICvals_waste, RSSvals_waste)
-    waste_stored_coefficients = [res[1] for res in waste_results]
-    result_summary_arr_waste = [f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}" for res in waste_results]
+
+    # using functional programming (map and lambdas)
+    waste_stored_coefficients = list(map(lambda res: res[1], waste_results))
+    result_summary_arr_waste = list(map(lambda res: f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}", waste_results))
 
     return result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients
+
+
+# def polynomial_fit():
+#     pollution_x, pollution_y, waste_x, waste_y = load_data()
+#     degrees = 5
+#     AICvals_pollution, RSSvals_pollution = [], []
+#     pollution_results = poly_fit_helper(pollution_x, pollution_y, degrees, AICvals_pollution, RSSvals_pollution)
+#     pollution_stored_coefficients = [res[1] for res in pollution_results]
+#     result_summary_arr_pollution = [f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}" for res in pollution_results]
+
+#     AICvals_waste, RSSvals_waste = [], []
+#     waste_results = poly_fit_helper(waste_x, waste_y, degrees, AICvals_waste, RSSvals_waste)
+#     waste_stored_coefficients = [res[1] for res in waste_results]
+#     result_summary_arr_waste = [f"DEGREE: {res[0]} COEFFICIENTS: {res[1]} \n RSS: {res[2]} \n AIC: {res[3]}" for res in waste_results]
+
+#     return result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients
 
 def random_forest_model_fit():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
@@ -123,11 +160,13 @@ async def predict(request: PredictionRequest):
             linear_model = linear_regression()[0]
             random_forest_model = random_forest_model_fit()[0]
             result_summary_arr, _, AICvals, RSSvals, _, _, stored_coeffs, _ = polynomial_fit()
+            print(result_summary_arr)
         else:
             x, y = waste_x.reshape(-1, 1), waste_y
             linear_model = linear_regression()[1]
             random_forest_model = random_forest_model_fit()[1]
             _, result_summary_arr, _, _, AICvals, RSSvals, _, stored_coeffs = polynomial_fit()
+            print(result_summary_arr)
 
         model_num = pick_best_model(AICvals)
         AIC_poly = AICvals[model_num]
@@ -137,8 +176,16 @@ async def predict(request: PredictionRequest):
         if request.modelType == "linear":
             prediction = float(linear_model.predict(production)[0])
             y_pred = linear_model.predict(x)
-            RSS = calcRSS(y, y_pred)
-            AIC = calcAIC(RSS, len(y), len(linear_model.coef_))
+
+            #calculate RSS
+            RSS_w_y_linear = RSS_y(y)
+            RSS = RSS_w_y_linear(y_pred)
+
+            #calculate AIC
+            AIC_w_RSS_linear = AIC_RSS(RSS)
+            AIC_w_n_linear = AIC_w_RSS_linear(len(y)) 
+            AIC = AIC_w_n_linear(len(linear_model.coef_))
+
             COEFFICIENTS = [linear_model.coef_[0], linear_model.intercept_]
             model_info = f"\nModel Type: Linear Regression\nRSS: {RSS:.4f}\nAIC: {AIC:.4f}\nCoefficients: {COEFFICIENTS}"
         elif request.modelType == "polynomial":
@@ -150,10 +197,14 @@ async def predict(request: PredictionRequest):
         else:
             prediction = float(random_forest_model.predict(production)[0])
             y_pred = random_forest_model.predict(x)
-            RSS = calcRSS(y, y_pred)
+
+            #calculate RSS
+            RSS_w_y_linear = RSS_y(y)
+            RSS = RSS_w_y_linear(y_pred)
+
             model_info = f"\nModel Type: Random Forest\nRSS: {RSS:.4f}"
 
-        graph_data = [{"production": float(x[i][0]), "original": float(y[i])} for i in range(len(x))]
+        graph_data = list(map(lambda i: {"production": float(x[i][0]), "original": float(y[i])}, range(len(x))))
         graph_data.append({"production": float(request.productionAmount), "userInput": float(prediction)})
         graph_data = sorted(graph_data, key=lambda d: d["production"])
 
