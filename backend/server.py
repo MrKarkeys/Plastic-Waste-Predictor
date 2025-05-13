@@ -63,6 +63,7 @@ def AIC_RSS(RSS):
         return AIC_k
     return AIC_n
 
+# linear regression model for pollution and waste
 def linear_regression():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
     pollution_x = pollution_x.reshape(-1, 1)
@@ -71,6 +72,7 @@ def linear_regression():
     predict_waste_model = LinearRegression().fit(waste_x, waste_y)
     return predict_pollution_model, predict_waste_model
 
+# for polynomial fit picking the best model
 def pick_best_model(AICvals):
     if not AICvals:
         return None
@@ -80,9 +82,11 @@ def pick_best_model(AICvals):
             best = i
     return best
 
+# getting coefficients of the polynomial fit 
 def linear_fit2(x, y):
     return np.dot(np.linalg.inv(np.dot(x.T, x)), np.dot(x.T, y))
 
+# calculating RSS, AIC, and more for polynomial fit
 def poly_fit_helper(x, y, num_degrees, AICvals, RSSvals):
     results = []
     for i in range(1, num_degrees+1):
@@ -107,6 +111,7 @@ def poly_fit_helper(x, y, num_degrees, AICvals, RSSvals):
         results.append((i, coefficients, RSS, AIC, xdata, final_y))
     return results
 
+# creating result summary and returning model information
 def polynomial_fit():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
     degrees = 5
@@ -126,7 +131,7 @@ def polynomial_fit():
 
     return result_summary_arr_pollution, result_summary_arr_waste, AICvals_pollution, RSSvals_pollution, AICvals_waste, RSSvals_waste, pollution_stored_coefficients, waste_stored_coefficients
 
-
+# random forest model for pollution and waste
 def random_forest_model_fit():
     pollution_x, pollution_y, waste_x, waste_y = load_data()
     pollution_x = pollution_x.reshape(-1, 1)
@@ -141,6 +146,7 @@ async def predict(request: PredictionRequest):
         production = np.array([[request.productionAmount]])
         pollution_x, pollution_y, waste_x, waste_y = load_data()
 
+        # gathering models for pollution or waste
         if request.predictionType == "pollution":
             x, y = pollution_x.reshape(-1, 1), pollution_y
             linear_model = linear_regression()[0]
@@ -155,6 +161,7 @@ async def predict(request: PredictionRequest):
         model_num = pick_best_model(AICvals)
         COEFFICIENTS = stored_coeffs[model_num]
 
+        # getting prediciton results dependingon model selection
         if request.modelType == "linear":
             prediction = float(linear_model.predict(production)[0])  
         elif request.modelType == "polynomial":
@@ -225,8 +232,7 @@ async def get_model_info(request: PredictionRequest):
     try:
         pollution_x, pollution_y, waste_x, waste_y = load_data()
 
-        # extracting models for linear regression and random_forest for pollution and waste
-        # getting all calclated results for polynomial fit
+        # gathering models for pollution or waste
         if request.predictionType == "pollution":
             x, y = pollution_x.reshape(-1, 1), pollution_y
             linear_model = linear_regression()[0]
@@ -273,8 +279,9 @@ async def get_model_info(request: PredictionRequest):
 
             model_info = f"\nModel Type: Random Forest\nRSS: {RSS:.4f}"
 
+        # for debugging
         print(model_info)
-
+        
         model = genai.GenerativeModel("gemini-2.0-flash")
         model_prompt = f"""
             You are an environmental analyst. Given the predicted plastic {request.predictionType} of **{request.productionAmount:.2f} million tonnes**, analyze the following model information:
