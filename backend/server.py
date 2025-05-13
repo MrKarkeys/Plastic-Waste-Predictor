@@ -14,6 +14,7 @@ load_dotenv()
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
 genai.configure(api_key=gemini_api_key)
+model_info = ""
 
 app = FastAPI()
 
@@ -133,8 +134,6 @@ async def predict(request: PredictionRequest):
         RSS_poly = RSSvals[model_num]
         COEFFICIENTS = stored_coeffs[model_num]
 
-        model_info = ""
-
         if request.modelType == "linear":
             prediction = float(linear_model.predict(production)[0])
             y_pred = linear_model.predict(x)
@@ -158,38 +157,119 @@ async def predict(request: PredictionRequest):
         graph_data.append({"production": float(request.productionAmount), "userInput": float(prediction)})
         graph_data = sorted(graph_data, key=lambda d: d["production"])
 
-        impact_prompt = f"""
-You are an environmental analyst. Given the plastic {request.predictionType} of {prediction:.2f} million tonnes, provide the following:
-
-**1) Environmental Impacts:**  
-List several key environmental concerns, each starting with a bolded label (e.g., **Ocean Pollution:**).
-
-**2) Solutions:**  
-List practical and policy-based solutions, each also beginning with a bolded label.
-
-Model Information: {model_info}
-
-Use markdown formatting for readability (bold, line breaks, and bullet points if needed).
-"""
-
-        try:
-            model = genai.GenerativeModel("gemini-2.0-flash")
-            response = model.generate_content(impact_prompt)
-            impact_analysis = response.text
-            print(impact_analysis)
-        except Exception as e:
-            print(f"Gemini API Error: {e}")
-            impact_analysis = "Environmental impact analysis is currently unavailable."
-
         return {
             "prediction": prediction,
             "graphData": graph_data,
-            "impactAnalysis": impact_analysis
         }
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/environmental-impacts")
+async def get_environmental_impacts(request: PredictionRequest):
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        impact_prompt = f"""
+            You are an environmental analyst. Given the predicted plastic {request.predictionType} of **{request.productionAmount:.2f} million tonnes**, generate a detailed analysis of environmental impacts.
+
+            Focus on:
+            - Begin with a short summary sentence
+            - List several key environmental concerns, each starting with a **bolded label** (e.g., **Ocean Pollution:**)
+            - Use bullet points for clarity
+            - Focus only on environmental impacts, not solutions
+
+            Format the output in clean markdown using:
+            - Bolded labels within bullet points
+            - Clear line breaks between points
+            """
+        
+        response = model.generate_content(impact_prompt)
+        return {"environmentalImpacts": response.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/solutions")
+async def get_solutions(request: PredictionRequest):
+    try:
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        solutions_prompt = f"""
+            You are an environmental analyst. Given the predicted plastic {request.predictionType} of **{request.productionAmount:.2f} million tonnes**, generate practical and policy-based solutions.
+
+            Focus on:
+            - Begin with a transition sentence
+            - List both practical and policy-based solutions
+            - Each solution should start with a **bolded label**
+            - Use bullet points for clarity
+            - Focus only on solutions, not impacts
+
+            Format the output in clean markdown using:
+            - Bolded labels within bullet points
+            - Clear line breaks between points
+            """
+        
+        response = model.generate_content(solutions_prompt)
+        return {"solutions": response.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/model-info")
+async def get_model_info(request: PredictionRequest):
+    try:
+        production = np.array([[request.productionAmount]])
+        pollution_x, pollution_y, waste_x, waste_y = load_data()
+
+        if request.predictionType == "pollution":
+            x, y = pollution_x.reshape(-1, 1), pollution_y
+            linear_model = linear_regression()[0]
+            random_forest_model = random_forest_model_fit()[0]
+            result_summary_arr, _, AICvals, RSSvals, _, _, stored_coeffs, _ = polynomial_fit()
+        else:
+            x, y = waste_x.reshape(-1, 1), waste_y
+            linear_model = linear_regression()[1]
+            random_forest_model = random_forest_model_fit()[1]
+            _, result_summary_arr, _, _, AICvals, RSSvals, _, stored_coeffs = polynomial_fit()
+
+        model_num = pick_best_model(AICvals)
+        AIC_poly = AICvals[model_num]
+        RSS_poly = RSSvals[model_num]
+        COEFFICIENTS = stored_coeffs[model_num]
+
+        if request.modelType == "linear":
+            y_pred = linear_model.predict(x)
+            RSS = calcRSS(y, y_pred)
+            AIC = calcAIC(RSS, len(y), len(linear_model.coef_))
+            COEFFICIENTS = [linear_model.coef_[0], linear_model.intercept_]
+            model_info = f"\nModel Type: Linear Regression\nRSS: {RSS:.4f}\nAIC: {AIC:.4f}\nCoefficients: {COEFFICIENTS}"
+        elif request.modelType == "polynomial":
+            y_pred = np.polyval(COEFFICIENTS, x)
+            RSS = RSS_poly
+            AIC = AIC_poly
+            model_info = f"\nModel Type: Polynomial Regression\nRSS: {RSS:.4f}\nAIC: {AIC:.4f}\nCoefficients: {COEFFICIENTS}"
+        else:
+            y_pred = random_forest_model.predict(x)
+            RSS = calcRSS(y, y_pred)
+            model_info = f"\nModel Type: Random Forest\nRSS: {RSS:.4f}"
+
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        model_prompt = f"""
+            You are an environmental analyst. Given the predicted plastic {request.predictionType} of **{request.productionAmount:.2f} million tonnes**, analyze the following model information:
+
+            {model_info}
+
+            Please provide a clear interpretation of:
+            What the model type means for this prediction
+            The significance of the RSS and AIC values
+            What the coefficients tell us about the relationship between production and {request.predictionType}
+            Any limitations or considerations of the model
+
+            Format the output in clean markdown using:
+            - Bolded labels within bullet points
+            - Clear line breaks between points
+            """
+        
+        response = model.generate_content(model_prompt)
+        return {"modelInfo": response.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

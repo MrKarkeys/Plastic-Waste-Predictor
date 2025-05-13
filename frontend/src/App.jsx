@@ -10,7 +10,9 @@ function App() {
   const [result, setResult] = useState(null)
   const [graphData, setGraphData] = useState(null)
   const [error, setError] = useState(null)
-  const [impactAnalysis, setImpactAnalysis] = useState(null)
+  const [environmentalImpacts, setEnvironmentalImpacts] = useState(null)
+  const [solutions, setSolutions] = useState(null)
+  const [modelInfo, setModelInfo] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async () => {
@@ -22,7 +24,8 @@ function App() {
       setIsLoading(true)
       setError(null)
       
-      const response = await fetch('http://localhost:8000/api/predict', {
+      // Make prediction API call
+      const predictionResponse = await fetch('http://localhost:8000/api/predict', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -34,14 +37,73 @@ function App() {
         })
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      if (!predictionResponse.ok) {
+        throw new Error(`HTTP error! status: ${predictionResponse.status}`)
       }
 
-      const data = await response.json()
-      setResult(data.prediction.toFixed(2))
-      setGraphData(data.graphData)
-      setImpactAnalysis(data.impactAnalysis)
+      const predictionData = await predictionResponse.json()
+      setResult(predictionData.prediction.toFixed(2))
+      setGraphData(predictionData.graphData)
+
+      // Make environmental impacts API call
+      const impactsResponse = await fetch('http://localhost:8000/api/environmental-impacts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productionAmount: parseFloat(productionAmount) * 1000000,
+          predictionType: predictionType,
+          modelType: modelType === 'model1' ? 'linear' : modelType === 'model2' ? 'polynomial' : 'randomforest'
+        })
+      })
+
+      if (!impactsResponse.ok) {
+        throw new Error(`HTTP error! status: ${impactsResponse.status}`)
+      }
+
+      const impactsData = await impactsResponse.json()
+      setEnvironmentalImpacts(impactsData.environmentalImpacts)
+
+      // Make model info API call
+      const modelInfoResponse = await fetch('http://localhost:8000/api/model-info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productionAmount: parseFloat(productionAmount) * 1000000,
+          predictionType: predictionType,
+          modelType: modelType === 'model1' ? 'linear' : modelType === 'model2' ? 'polynomial' : 'randomforest'
+        })
+      })
+
+      if (!modelInfoResponse.ok) {
+        throw new Error(`HTTP error! status: ${modelInfoResponse.status}`)
+      }
+
+      const modelInfoData = await modelInfoResponse.json()
+      setModelInfo(modelInfoData.modelInfo)
+
+      // Make solutions API call
+      const solutionsResponse = await fetch('http://localhost:8000/api/solutions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productionAmount: parseFloat(productionAmount) * 1000000,
+          predictionType: predictionType,
+          modelType: modelType === 'model1' ? 'linear' : modelType === 'model2' ? 'polynomial' : 'randomforest'
+        })
+      })
+
+      if (!solutionsResponse.ok) {
+        throw new Error(`HTTP error! status: ${solutionsResponse.status}`)
+      }
+
+      const solutionsData = await solutionsResponse.json()
+      setSolutions(solutionsData.solutions)
       setError(null)
     } catch (error) {
       console.error('Error:', error)
@@ -73,7 +135,9 @@ function App() {
             setProductionAmount('')
             setResult(null)
             setGraphData(null)
-            setImpactAnalysis(null)
+            setEnvironmentalImpacts(null)
+            setSolutions(null)
+            setModelInfo(null)
             setError(null)
           }}
           >
@@ -90,7 +154,9 @@ function App() {
             setProductionAmount('')
             setResult(null)
             setGraphData(null)
-            setImpactAnalysis(null)
+            setEnvironmentalImpacts(null)
+            setSolutions(null)
+            setModelInfo(null)
             setError(null)
           }}
           >
@@ -110,7 +176,9 @@ function App() {
             setProductionAmount('')
             setResult(null)
             setGraphData(null)
-            setImpactAnalysis(null)
+            setEnvironmentalImpacts(null)
+            setSolutions(null)
+            setModelInfo(null)
             setError(null)
           }}
           >
@@ -127,7 +195,9 @@ function App() {
             setProductionAmount('')
             setResult(null)
             setGraphData(null)
-            setImpactAnalysis(null)
+            setEnvironmentalImpacts(null)
+            setSolutions(null)
+            setModelInfo(null)
             setError(null)
           }}
           >
@@ -144,7 +214,9 @@ function App() {
             setProductionAmount('')
             setResult(null)
             setGraphData(null)
-            setImpactAnalysis(null)
+            setEnvironmentalImpacts(null)
+            setSolutions(null)
+            setModelInfo(null)
             setError(null)
           }}
           >
@@ -237,43 +309,41 @@ function App() {
                           strokeWidth={2}
                         />
                       )}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              {impactAnalysis && (
-  <div className="environmental-impact">
-    <h2>Environmental Impact Analysis</h2>
-    <div className="impact-sections">
-      {(() => {
-        const environmentalSection = impactAnalysis.match(/\*\*1\) Environmental Impacts:\*\*([\s\S]*?)\*\*2\) Solutions:\*\*/);
-        const solutionsSection = impactAnalysis.match(/\*\*2\) Solutions:\*\*([\s\S]*)/);
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
 
-        const impacts = environmentalSection ? environmentalSection[1].trim() : "";
-        const solutions = solutionsSection ? solutionsSection[1].trim() : "";
+                <div className="environmental-impact">
+                  <h2>Environmental Impact Analysis</h2>
+                  <div className="impact-sections">
+                    {environmentalImpacts && (
+                      <div className="impact-section impacts">
+                        <h3>Environmental Impacts</h3>
+                        <div className="impact-content">
+                          <ReactMarkdown>{environmentalImpacts}</ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
 
-        return (
-          <>
-            <div className="impact-section impacts">
-              <h3>Environmental Impacts</h3>
-              <div className="impact-content">
-                <ReactMarkdown>{impacts}</ReactMarkdown>
-              </div>
-            </div>
+                    {solutions && (
+                      <div className="impact-section solutions">
+                        <h3>Solutions</h3>
+                        <div className="impact-content">
+                          <ReactMarkdown>{solutions}</ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
 
-            <div className="impact-section solutions">
-              <h3>Solutions</h3>
-              <div className="impact-content">
-                <ReactMarkdown>{solutions}</ReactMarkdown>
-              </div>
-            </div>
-          </>
-        );
-      })()}
-    </div>
-  </div>
-)}
-
-
+                    {modelInfo && (
+                      <div className="impact-section model-info">
+                        <h3>Model Information</h3>
+                        <div className="impact-content">
+                          <ReactMarkdown>{modelInfo}</ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </>
             )}
           </>
