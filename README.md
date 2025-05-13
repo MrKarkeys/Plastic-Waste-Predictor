@@ -1,13 +1,13 @@
 # Plastic-Waste-Predictor
 
-A web application that predicts plastic waste and pollution based on production amounts using machine learning models.
+A web application that predicts plastic waste and pollution based on production amounts using machine learning and mathematical models.
 
 ## Features
 
 - Predict plastic waste and pollution based on production amounts
 - Interactive visualization with historical data
-- Environmental impact analysis using AI
-- Two different prediction models: Linear and Polynomial
+- Environmental impact analysis using Google Gemini AI
+- Three different prediction models: Linear, Polynomial, and Random Forest
 
 ## Prerequisites
 
