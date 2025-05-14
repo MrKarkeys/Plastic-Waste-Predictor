@@ -1,13 +1,13 @@
 # Plastic-Waste-Predictor
 
-A web application that predicts plastic waste and pollution based on production amounts using machine learning models.
+A web application that predicts plastic waste and pollution based on production amounts using machine learning and mathematical models.
 
 ## Features
 
 - Predict plastic waste and pollution based on production amounts
 - Interactive visualization with historical data
-- Environmental impact analysis using AI
-- Two different prediction models: Linear and Polynomial
+- Environmental impact analysis using Google Gemini AI
+- Three different prediction models: Linear, Polynomial, and Random Forest
 
 ## Prerequisites
 
@@ -28,8 +28,11 @@ A web application that predicts plastic waste and pollution based on production 
    ```bash
    pip install -r requirements.txt
    ```
-
-3. Start the backend server:
+3. Create a .env file and add your Gemini API Key in this format:
+   ```bash
+   GEMINI_API_KEY={Add Your Key Here}
+   ```
+4. Start the backend server:
    ```bash
    python server.py
    ```
@@ -57,7 +60,7 @@ A web application that predicts plastic waste and pollution based on production 
 
 1. Open your web browser and navigate to http://localhost:5173
 2. Choose between Waste or Pollution prediction
-3. Select Model 1 (Linear) or Model 2 (Polynomial)
+3. Select Model 1 (Linear), Model 2 (Polynomial), Model 3 (Random Forest)
 4. Enter the production amount in million tonnes
 5. Click 'Predict' to see the results
-6. View the prediction on the interactive graph and read the environmental impact analysis
+6. View the prediction on the interactive graph and read the environmental impacts, solutions, and model information
