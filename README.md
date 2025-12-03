@@ -24,11 +24,6 @@ A web application that predicts plastic waste and pollution based on production 
    cd backend
    ```
    
-2. Load the sql example data into the database:
-   ```bash
-   sudo -u postgres psql -d EcoNeighbordb -f /tmp/exampleData.sql 
-   ```
-   
 3. Install Python dependencies:
    ```bash
    pip install -r requirements.txt
