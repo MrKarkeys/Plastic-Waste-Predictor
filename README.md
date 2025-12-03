@@ -23,16 +23,21 @@ A web application that predicts plastic waste and pollution based on production 
    ```bash
    cd backend
    ```
-
-2. Install Python dependencies:
+   
+2. Load the sql example data into the database:
+   ```bash
+   sudo -u postgres psql -d EcoNeighbordb -f /tmp/exampleData.sql 
+   ```
+   
+3. Install Python dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-3. Create a .env file and add your Gemini API Key in this format:
+4. Create a .env file and add your Gemini API Key in this format:
    ```bash
    GEMINI_API_KEY={Add Your Key Here}
    ```
-4. Start the backend server:
+5. Start the backend server:
    ```bash
    python server.py
    ```
